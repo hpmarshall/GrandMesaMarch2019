@@ -25,7 +25,7 @@ num = datenum(daymonthyear,'dd-mmm-yyyy');
 folders = folders(sortIx);
 
 % Loop Over each day of Acquisition
-for ff = 1:length(folders)
+for ff = 2%1:length(folders)
     dataDir = [directory,'/',folders(ff).name,'/PulseEKKO/'];
     if strcmp(dataDir,'/SNOWDATA/GrandMesa2019/GPR/PulseEKKO_28March2019/PulseEKKO/')
         % Move into one additional directory for this day.
@@ -76,7 +76,7 @@ for ff = 1:length(folders)
         end
        
     
-    for ii = 2 : nFiles
+    for ii = 2%3%1 : nFiles
         tic
         %------------------------------------------------------------------
         % Multiplexed Channel Record
@@ -101,12 +101,15 @@ for ff = 1:length(folders)
         hdix = 1:3:length(rawGPS{1});
         GPGGAix = 2:3:length(rawGPS{1});
         GPZDAix = 3:3:length(rawGPS{1});
-        nanIx = [];
         for jj = 1:length(hdix)
             % Get the Date and Time of the Trace
             % GPZDA string
             tmp = rawGPS{1}{GPZDAix(jj)};
             time(jj,:) = str2num(tmp(8:13));
+            % Correct time to seconds of day
+            timestr = [tmp(8:9),':',tmp(10:11),':',tmp(12:13)];
+            [~,~,~,H,M,S] = datevec(timestr);
+            sec(jj,:) = H*3600+M*60+S;
             date(jj,:) = datestr(datenum(tmp([18,19,21,22,24,25,26,27]),'ddmmyyyy'),'mm/dd/yyyy');
             
             % Get the Trace Number and Position
@@ -143,20 +146,42 @@ for ff = 1:length(folders)
             end
             catch
                 lat(jj,:) = NaN;
-                nanIx = [nanIx,jj];
             end
         end
         % Remove Non Unique Values
         [time,unIx] = unique(time);
+        sec = sec(unIx);
         lon = lon(unIx);
         lat = lat(unIx);
         trcno = trcno(unIx);
         % Remove NaN Values
+        nanIx = find(isnan(lon));
         lon(nanIx) = [];
         lat(nanIx) = [];
         trcno(nanIx) = [];
+        time(nanIx) = [];
+        sec(nanIx) = [];
+        
+        % Least Squares Estimate of Traces per Second
+        G = [ones(length(time),1),trcno]; d = sec;
+        m = G\d; % 1./m(2) = Trace Rate;
+        
+        % Reconfigure GPS Trace Number
+        dsec = sec - sec(1);
+        trcno = round(dsec./m(2))+1;
+        
+        % Ensure that we haven't Created Extraneous Trace Numbers
+        % Due to Free Run Acquisition this Traces will be Removed Later
+            % This does not Introduce any Permanant or Correlated Errors
+        trcendIx = find(trcno > multiplexNtrcs);
+        if ~isempty(trcendIx)
+            trcno(trcendIx(end):-1:trcendIx(1)) = ...
+                multiplexNtrcs:-1:(multiplexNtrcs-(length(trcendIx)-1));
+        end
+   
         % Convert to UTM
         [E,N,utmzone] = deg2utm(lat,lon);
+        
         % Moving Least Squares Interpolation
         nnodes = length(E);
         xi = trcno;
@@ -169,7 +194,20 @@ for ff = 1:length(folders)
         % Evaluate Approximation
         X = phi*E; Y = phi*N;
         % Linear Time Sample Interpolation
-        time = interp1(trcno,time,1:multiplexNtrcs);
+        sec = interp1(trcno,sec,1:multiplexNtrcs);
+        secNanIx = find(isnan(sec));
+        secGoodIx = find(~isnan(sec));
+        dsec = mean(diff(sec(secGoodIx)));
+        % Recursively Repair NaN Values caused by Extrapolation
+        for ii = 1:length(secNanIx)
+            sec(secNanIx(ii)) = sec(secNanIx(ii) - 1) + dsec;
+        end
+        decsec = sec./(24*3600);
+        % Convert to Time of Day
+        tmp = datestr(decsec,'HH:MM:SS.FFF');
+        tmp(:,[3,6]) = [];
+        time = str2num(tmp);
+        
         % Append GPS Data to Trace Header
         trhd(4,:) = time;
         trhd(13,:) = X;
