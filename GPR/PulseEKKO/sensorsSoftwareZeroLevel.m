@@ -55,6 +55,9 @@ for ff = 1:length(folders)
     hdfiles(2:end,:) = [];
     hdfiles = cell2mat(hdfiles');
     
+    % Get .GPS Files ...
+    gpsfilenames = dir(fullfile(dataDir,'*.GPS'));
+    
     % Construct Files
     files = dt1files(:,1:6);
     nFiles = size(files,1);
@@ -72,12 +75,8 @@ for ff = 1:length(folders)
         else
         end
        
-    % Get .GPS Files ...
-    gpsfilenames = dir(fullfile(dataDir,'*.GPS'));
-    fid=fopen([gpsfilenames.folder,gpsfilenames.name]);
-
     
-    for ii = 1 : nFiles
+    for ii = 2 : nFiles
         tic
         %------------------------------------------------------------------
         % Multiplexed Channel Record
@@ -93,6 +92,88 @@ for ff = 1:length(folders)
         f0GHz = f0/1000;
         % No. Traces in Multiplexed Data
         [~, multiplexNtrcs] = size(Rad);
+        
+        % Read .GPS file
+        fid=fopen([dataDir,gpsfilenames(ii).name]);
+        % Read the whole lines of .GPS file into a cell array
+        rawGPS=textscan(fid,'%s','Delimiter','\n');
+        % Get the Indicies of the important .GPS Rows
+        hdix = 1:3:length(rawGPS{1});
+        GPGGAix = 2:3:length(rawGPS{1});
+        GPZDAix = 3:3:length(rawGPS{1});
+        nanIx = [];
+        for jj = 1:length(hdix)
+            % Get the Date and Time of the Trace
+            % GPZDA string
+            tmp = rawGPS{1}{GPZDAix(jj)};
+            time(jj,:) = str2num(tmp(8:13));
+            date(jj,:) = datestr(datenum(tmp([18,19,21,22,24,25,26,27]),'ddmmyyyy'),'mm/dd/yyyy');
+            
+            % Get the Trace Number and Position
+            tmp = strsplit(rawGPS{1}{hdix(jj)});
+            trcno(jj,:) = str2num(tmp{2}(2:end));
+            posx(jj,:) = str2num(tmp{5});
+            
+            % Get the Longitude DDDMM.MMMMM
+            tmp = rawGPS{1}{GPGGAix(jj)};
+            try
+            lon(jj,:) = str2num(tmp(32:34));
+            lonm(jj,:) = str2num(tmp(35:43));
+            % Convert to Decimal Degees
+            lonm(jj,:) = lonm(jj)./60;
+            lon(jj,:) = lon(jj)+lonm(jj);
+            % Check Sign
+            if (tmp(45)) == 'W'
+                lon(jj,:) = -lon(jj,:);
+            end
+            catch
+                lon(jj,:) = NaN;
+            end
+            
+            % Get the Latitude DDMM.MMMMM
+            try
+            lat(jj,:) = str2num(tmp(18:19));
+            latm(jj,:) = str2num(tmp(20:28));
+            % Convert to Decimal Degees
+            latm(jj,:) = latm(jj)./60;
+            lat(jj,:) = lat(jj)+latm(jj);
+            % Check Sign
+            if (tmp(30)) == 'S'
+                lat(jj,:) = -lat(jj,:);
+            end
+            catch
+                lat(jj,:) = NaN;
+                nanIx = [nanIx,jj];
+            end
+        end
+        % Remove Non Unique Values
+        [time,unIx] = unique(time);
+        lon = lon(unIx);
+        lat = lat(unIx);
+        trcno = trcno(unIx);
+        % Remove NaN Values
+        lon(nanIx) = [];
+        lat(nanIx) = [];
+        trcno(nanIx) = [];
+        % Convert to UTM
+        [E,N,utmzone] = deg2utm(lat,lon);
+        % Moving Least Squares Interpolation
+        nnodes = length(E);
+        xi = trcno;
+        npoints = multiplexNtrcs;
+        x = 1:multiplexNtrcs;
+        dxi = mean(diff(xi));
+        scale = 7;
+        dm = scale*dxi*ones(1,nnodes);
+        [phi, ~, ~] = MLS1DShape(1, nnodes, xi, npoints, x, dm, 'GAUSS', 3.0);
+        % Evaluate Approximation
+        X = phi*E; Y = phi*N;
+        % Linear Time Sample Interpolation
+        time = interp1(trcno,time,1:multiplexNtrcs);
+        % Append GPS Data to Trace Header
+        trhd(4,:) = time;
+        trhd(13,:) = X;
+        trhd(14,:) = Y;
         
         % Install Transmitter and Receiver Sequencing and Geometry
         % 500 MHz Offsets
