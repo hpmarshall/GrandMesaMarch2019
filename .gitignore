@@ -1,2 +1,5 @@
 # Excel temporary
 ~$*.xls*
+# python notebooks temporary
+Untitled.ipynb
+.ipynb_checkpoints
