@@ -6,17 +6,6 @@ import glob
 import numpy as np
 import os
 
-def nanmean(d): # function to get mean of density data
-    col=list(d) # get a list of columns
-    pos=0
-    q=[]
-    for icol in col:
-        d2=pd.to_numeric(d[icol],errors='coerce')
-        q.append(d2.mean(skipna=True)) # mean of profile
-        pos += 1
-    mrho=np.mean(q) # mean of profile means (IMPROVE!)
-    return mrho
-
 def readSnowpit(filename):
     print(filename)
     fname=os.path.basename(filename) # get just the filename
@@ -28,9 +17,11 @@ def readSnowpit(filename):
     pitN=d['Unnamed: 15'][2] # get northing
     d=pd.read_excel(xl,sheet_name=0,usecols='G') # read a column
     pitHS=d['Unnamed: 6'][4] # get snowdepth
-    d=pd.read_excel(xl,sheet_name=0,usecols='E:G') # read a column
-    d2=d.iloc[9:,:] # get density data
-    mrho=nanmean(d2) # get mean density
+    d=pd.read_excel(xl,sheet_name=0,usecols='E:G') # read 3 columns
+    d2=d.iloc[9:,:] # get all density data
+    d3=d2.values.flatten() # make into one 1-D array
+    d4=pd.to_numeric(d3) # make strings into floats for computation
+    mrho=np.nanmean(d4) # calculate the mean, ignoring NaN values
     pitMeanRho=float("{0:.1f}".format(mrho)) # format to have one decimal point
     pitSWE=pitMeanRho*pitHS/100 # calculate SWE
     pitSWE=float("{0:.1f}".format(pitSWE)) # format for 1 dec point
@@ -39,6 +30,7 @@ def readSnowpit(filename):
     df = pd.DataFrame(data,columns=column) # create dataframe
     return df # output result
 
+# !find . -name "~*" -type f -delete  # need to figure out how to do this within python. Issues with " and ~
 pitfiles=glob.glob('../PITS/*.xlsx') # get all pit files
 frames = [ readSnowpit(f) for f in pitfiles ] # iterate over pits with list comprehension
 result = pd.concat(frames, ignore_index=True) # concatenate the results
