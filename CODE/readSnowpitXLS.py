@@ -9,7 +9,12 @@ import os
 def readSnowpit(filename):
     print(filename)
     fname=os.path.basename(filename) # get just the filename
-    pitID=fname[0:3] # get just the pitID
+    # make names for all the csv files to output
+    fname_density = path_out + fname[0: 4] + 'density_' + fname[4: -5] + '.csv'
+    fname_temperature = path_out + fname[0: 4] + 'temperature_' + fname[4: -5] + '.csv'
+    fname_stratigraphy = path_out + fname[0: 4] + 'stratigraphy_' + fname[4: -5] + '.csv'
+    fname_header = path_out + fname[0: 4] + 'header_' + fname[4: -5] + '.csv'
+    PitID=fname[0:3] # get just the pitID
     xl = pd.ExcelFile(filename) # make an excel object
     d=pd.read_excel(xl,sheet_name=0,usecols='L') # read a column
     pitE=d['Surveyors:'][2] # get easting
