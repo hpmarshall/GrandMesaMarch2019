@@ -1,0 +1,9 @@
+Downselect_50_pts_GM_Mar2019.txt = list of candidate sampling locations used during campaign
+GM_March2019_depths_sitevar_11Jul2019.txt = depth measurements from standard probing, Mesa2 and MagnaProbe 
+PitSummary.csv = depth, mean density, SWE from each sampled snowpit 
+GrandMesa19_depth_template.xlsx = spreadsheet used for depth measurements
+GrandMesa19_pit_template.xlsx = spreadsheet used for pit measurements
+CODE = all scripts and functions related to this dataset
+DEPTHS = excel files with original data 
+PITS = excel files with original data
+SMP = raw .pnt files from SnowMicroPenetrometer
