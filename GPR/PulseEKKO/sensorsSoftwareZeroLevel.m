@@ -4,7 +4,7 @@
 
 % Tate Meehan - Oct. 2018 - Updated April 2019
 clear; close all; clc
-addpath '/sonichome/tatemeehan/GreenTracs2017/GPR_Processing/MultiOffset/TM'
+% addpath '/sonichome/tatemeehan/GreenTracs2017/GPR_Processing/MultiOffset/TM'
 isWrite = 1;
 
 % Create Error Log
@@ -15,9 +15,11 @@ isWrite = 1;
 %% From Data Directory Read and Sort SubDirectories
 workingDirectory = pwd;
 % Enter the Appropriate Data Directory
-directory = '/SNOWDATA/GrandMesa2019/GPR/';
+% directory = '/SNOWDATA/GrandMesa2019/GPR/';
+directory = 'D:\GrandMesaGPR';
 folders = dir(directory);
-folders(1:2) = []; % Remove Hidden Directories
+% folders(1:2) = []; % Remove Hidden Directories
+folders([1:3,8:14]) = []; % Remove Extra Folders
 datearray = cat(1,folders.date);
 daymonthyear = (datearray(:,1:11));
 num = datenum(daymonthyear,'dd-mmm-yyyy');
@@ -25,11 +27,14 @@ num = datenum(daymonthyear,'dd-mmm-yyyy');
 folders = folders(sortIx);
 
 % Loop Over each day of Acquisition
-for ff = 2%1:length(folders)
-    dataDir = [directory,'/',folders(ff).name,'/PulseEKKO/'];
-    if strcmp(dataDir,'/SNOWDATA/GrandMesa2019/GPR/PulseEKKO_28March2019/PulseEKKO/')
+for ff = 4:length(folders)
+%     dataDir = [directory,'/',folders(ff).name,'/PulseEKKO/'];
+    dataDir = [directory,'\',folders(ff).name,'\PulseEKKO\'];
+        if strcmp(dataDir,'D:\GrandMesaGPR\PulseEKKO_28March2019\PulseEKKO\')
+%     if strcmp(dataDir,'/SNOWDATA/GrandMesa2019/GPR/PulseEKKO_28March2019/PulseEKKO/')
         % Move into one additional directory for this day.
-        dataDir = '/SNOWDATA/GrandMesa2019/GPR/PulseEKKO_28March2019/PulseEKKO/D04/';
+%         dataDir = '/SNOWDATA/GrandMesa2019/GPR/PulseEKKO_28March2019/PulseEKKO/D04/';
+        dataDir = 'D:\GrandMesaGPR\PulseEKKO_28March2019\PulseEKKO\D04\';
     end
     % This IS Robust for 2016 w/GPS files
     % Get .DT1 Files
@@ -43,7 +48,8 @@ for ff = 2%1:length(folders)
     if any(testbytes)
         rmDT1ix = find(testbytes);
         for ii = 1:length(any(testbytes))
-            msg = [dataDir,'/',dt1files(rmDT1ix,:),' has 0 bytes.','\n'];
+%             msg = [dataDir,'/',dt1files(rmDT1ix,:),' has 0 bytes.','\n'];
+            msg = [dataDir,'\',dt1files(rmDT1ix,:),' has 0 bytes.','\n'];
             warning(msg)
             WarnUser(msg,'ErrorLog.txt',workingDirectory)
         end
@@ -68,15 +74,43 @@ for ff = 2%1:length(folders)
             dt1num = str2num(dt1files(:,5:6));
             missingHD = dt1num(find(~ismember(dt1num,hdnum)));
             for ii = 1:length(missingHD)
-                msg = ['Missing ', dataDir,'/',files(missingHD(ii),:),'.HD','\n'];
+%                 msg = ['Missing ', dataDir,'/',files(missingHD(ii),:),'.HD','\n'];
+                msg = ['Missing ', dataDir,'\',files(missingHD(ii),:),'.HD','\n'];
                 warning(msg);
                 WarnUser(msg,'ErrorLog.txt',workingDirectory)
             end
         else
         end
-       
+       % Load Post Processed GPS
+       isPostProcessed = questdlg('Load a Post-Processed GPS File?','Post-Processed GPS','Yes','No','Yes');
+       if strcmp(isPostProcessed,'Yes')
+           disp('Loading Post-Processed GPS')
+           tic
+           if strcmp(dataDir,'D:\GrandMesaGPR\PulseEKKO_28March2019\PulseEKKO\D04\')
+               [fname,pname] = uigetfile([dataDir(1:end-14),'GeoXH\*.csv']);
+           else
+               [fname,pname] = uigetfile([dataDir(1:end-10),'GeoXH\*.csv']);
+           end
+           %           opts = detectImportOptions([pname,fname])
+           ppGPS = readtable([pname,fname]);
+           clear('pname','fname')
+           tmp = ppGPS.Var7;
+         for jj = 1:length(tmp)
+            ppTime(jj,:) = (tmp{jj}(10:end));
+            % Correct time to seconds of day
+            [~,~,~,H,M,S] = datevec(ppTime(jj,:));
+            ppSec(jj,:) = H*3600+M*60+S;
+            ppDate(jj,:) = datestr(tmp{jj}(1:8),'mm/dd/yyyy');
+         end
+         clear tmp
+         disp('Post-Procesed GPS Loaded')
+         toc
+         disp(' ')
+         
+       end
+      
     
-    for ii = 2%3%1 : nFiles
+    for ii = 1 : nFiles
         tic
         %------------------------------------------------------------------
         % Multiplexed Channel Record
@@ -97,10 +131,12 @@ for ff = 2%1:length(folders)
         fid=fopen([dataDir,gpsfilenames(ii).name]);
         % Read the whole lines of .GPS file into a cell array
         rawGPS=textscan(fid,'%s','Delimiter','\n');
+%         fclose(fid);
         % Get the Indicies of the important .GPS Rows
         hdix = 1:3:length(rawGPS{1});
         GPGGAix = 2:3:length(rawGPS{1});
         GPZDAix = 3:3:length(rawGPS{1});
+        sec = zeros(length(hdix),1);
         for jj = 1:length(hdix)
             % Get the Date and Time of the Trace
             % GPZDA string
@@ -111,11 +147,55 @@ for ff = 2%1:length(folders)
             [~,~,~,H,M,S] = datevec(timestr);
             sec(jj,:) = H*3600+M*60+S;
             date(jj,:) = datestr(datenum(tmp([18,19,21,22,24,25,26,27]),'ddmmyyyy'),'mm/dd/yyyy');
-            
+                        
             % Get the Trace Number and Position
             tmp = strsplit(rawGPS{1}{hdix(jj)});
             trcno(jj,:) = str2num(tmp{2}(2:end));
             posx(jj,:) = str2num(tmp{5});
+            
+            % Include Post Processed GPS
+            if strcmp(isPostProcessed,'Yes')
+                ppIx = find(sec(jj,:) == ppSec(:));
+                if ~isempty(ppIx)
+                    lon(jj,:) = ppGPS.Var1(ppIx);
+                    lat(jj,:) = ppGPS.Var2(ppIx);
+                    z(jj,:) = ppGPS.Var6(ppIx);
+                else
+                    % Get the Longitude DDDMM.MMMMM
+                    tmp = rawGPS{1}{GPGGAix(jj)};
+                    try
+                        lon(jj,:) = str2num(tmp(32:34));
+                        lonm(jj,:) = str2num(tmp(35:43));
+                        % Convert to Decimal Degees
+                        lonm(jj,:) = lonm(jj)./60;
+                        lon(jj,:) = lon(jj)+lonm(jj);
+                        % Check Sign
+                        if (tmp(45)) == 'W'
+                            lon(jj,:) = -lon(jj,:);
+                        end
+                    catch
+                        lon(jj,:) = NaN;
+                    end
+                    
+                    % Get the Latitude DDMM.MMMMM
+                    try
+                        lat(jj,:) = str2num(tmp(18:19));
+                        latm(jj,:) = str2num(tmp(20:28));
+                        % Convert to Decimal Degees
+                        latm(jj,:) = latm(jj)./60;
+                        lat(jj,:) = lat(jj)+latm(jj);
+                        % Check Sign
+                        if (tmp(30)) == 'S'
+                            lat(jj,:) = -lat(jj,:);
+                        end
+                    catch
+                        lat(jj,:) = NaN;
+                    end
+                    % Post Processed Elevation Data is unavailable
+                    z(jj,:) = -999999;%NaN;
+                end
+                   
+            else
             
             % Get the Longitude DDDMM.MMMMM
             tmp = rawGPS{1}{GPGGAix(jj)};
@@ -147,6 +227,7 @@ for ff = 2%1:length(folders)
             catch
                 lat(jj,:) = NaN;
             end
+            end
         end
         % Remove Non Unique Values
         [time,unIx] = unique(time);
@@ -154,6 +235,9 @@ for ff = 2%1:length(folders)
         lon = lon(unIx);
         lat = lat(unIx);
         trcno = trcno(unIx);
+        if strcmp(isPostProcessed,'Yes')
+        z = z(unIx);
+        end
         % Remove NaN Values
         nanIx = find(isnan(lon));
         lon(nanIx) = [];
@@ -161,6 +245,9 @@ for ff = 2%1:length(folders)
         trcno(nanIx) = [];
         time(nanIx) = [];
         sec(nanIx) = [];
+        if strcmp(isPostProcessed,'Yes')
+            z(nanIx) = [];
+        end
         
         % Least Squares Estimate of Traces per Second
         G = [ones(length(time),1),trcno]; d = sec;
@@ -175,43 +262,68 @@ for ff = 2%1:length(folders)
             % This does not Introduce any Permanant or Correlated Errors
         trcendIx = find(trcno > multiplexNtrcs);
         if ~isempty(trcendIx)
-            trcno(trcendIx(end):-1:trcendIx(1)) = ...
-                multiplexNtrcs:-1:(multiplexNtrcs-(length(trcendIx)-1));
+            trcno(trcendIx(end):-1:trcendIx(1)-1) = ...
+                multiplexNtrcs:-1:(multiplexNtrcs-(length(trcendIx)));
+            % Algorithm may fail (Recurssion Catch)
+            if trcno(trcendIx(1)- 1)  ==  trcno(trcendIx(1)-2)
+                dtrc = trcno(trcendIx(1)- 2) - trcno(trcendIx(1)- 3) ;
+                if dtrc > 1
+                    trcno(trcendIx(1)- 2) = trcno(trcendIx(1)- 2) - 1;
+                else
+                    disp('Algortihm is not robust')
+                    keyboard
+                end
+            end
+            
         end
-   
-        % Convert to UTM
-        [E,N,utmzone] = deg2utm(lat,lon);
         
-        % Moving Least Squares Interpolation
-        nnodes = length(E);
-        xi = trcno;
-        npoints = multiplexNtrcs;
-        x = 1:multiplexNtrcs;
-        dxi = mean(diff(xi));
-        scale = 7;
-        dm = scale*dxi*ones(1,nnodes);
-        [phi, ~, ~] = MLS1DShape(1, nnodes, xi, npoints, x, dm, 'GAUSS', 3.0);
-        % Evaluate Approximation
-        X = phi*E; Y = phi*N;
         % Linear Time Sample Interpolation
+        s = sec; % Copy
         sec = interp1(trcno,sec,1:multiplexNtrcs);
         secNanIx = find(isnan(sec));
         secGoodIx = find(~isnan(sec));
         dsec = mean(diff(sec(secGoodIx)));
         % Recursively Repair NaN Values caused by Extrapolation
-        for ii = 1:length(secNanIx)
-            sec(secNanIx(ii)) = sec(secNanIx(ii) - 1) + dsec;
+        for jj = 1:length(secNanIx)
+            sec(secNanIx(jj)) = sec(secNanIx(jj) - 1) + dsec;
         end
         decsec = sec./(24*3600);
+        
         % Convert to Time of Day
         tmp = datestr(decsec,'HH:MM:SS.FFF');
         tmp(:,[3,6]) = [];
         time = str2num(tmp);
+   
+        % Convert to UTM
+        [E,N,utmzone] = deg2utm(lat,lon);
+        
+%         % Moving Least Squares Interpolation
+%         nnodes = length(E);
+%         xi = trcno;
+%         npoints = multiplexNtrcs;
+%         x = 1:multiplexNtrcs;
+%         dxi = mean(diff(xi));
+%         scale = 7;
+%         dm = scale*dxi*ones(1,nnodes);
+%         [phi, ~, ~] = MLS1DShape(1, nnodes, xi, npoints, x, dm, 'GAUSS', 3.0);
+%         % Evaluate Approximation
+%         X = phi*E; Y = phi*N;
+
+        % PCHIP Interpolation (OutPerforms MLS)
+        X = pchip(s,E,sec);
+        Y = pchip(s,N,sec);
+        if strcmp(isPostProcessed,'Yes')
+            % Include Elevations
+        Z = pchip(s,z,sec);
+        end
         
         % Append GPS Data to Trace Header
         trhd(4,:) = time;
         trhd(13,:) = X;
         trhd(14,:) = Y;
+        if strcmp(isPostProcessed,'Yes')
+            trhd(15,:) = Z;
+        end
         
         % Install Transmitter and Receiver Sequencing and Geometry
         % 500 MHz Offsets
@@ -234,17 +346,20 @@ for ff = 2%1:length(folders)
         % Attach trace header to data for NetCDF Export
         DATA = [trhd;Rad];
         
+        clear('time','s','sec','date','trcno','posx','lat','latm','lon','lonm','z')
+        
         %         GPR = struct('metaData',{hdr1},'traceHeader',trhd,'traces',Rad,...
         %             'offsets',offsetArray,'frequency',f0,'timeSample',dt,'spaceSample',dx);
         
         %% Write to NetCDF
         if isWrite
             % Create the output Directory if it does not exist
-            if exist([workingDirectory,'/',folders(ff).name],'dir') ~= 7
-                mkdir(workingDirectory,folders(ff).name)
-            end
+%             if exist([workingDirectory,'/',folders(ff).name],'dir') ~= 7
+%                 mkdir(workingDirectory,folders(ff).name)
+%             end
             % Change to outdir for File Write
-            cd([workingDirectory,'/',folders(ff).name])
+%             cd([workingDirectory,'/',folders(ff).name])
+               cd(dataDir)
             
             % Name the NetCDF.nc file
             ncdfName = [folders(ff).name,'-',filename,'.nc'];
