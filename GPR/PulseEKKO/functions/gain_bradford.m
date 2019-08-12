@@ -13,6 +13,9 @@ if nargin < 3
 else
     if 2.*rollOff < ns
         rollOff = round(ns./2)+1;
+        tg1 = [1:rollOff].^tpow.';
+        tg2 = flipud(tg1);
+        tg = [tg1;tg2(1:(ns-rollOff))];
     elseif ns > rollOff
         tg1 = [1:rollOff].^tpow.';
         tg2 = flipud(tg1);

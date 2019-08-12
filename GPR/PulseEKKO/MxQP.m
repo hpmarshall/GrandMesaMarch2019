@@ -1,13 +1,12 @@
 %% Multi-channel Quad-Pole GPR (MxQP)
 clear; close all; clc;
 %% Meta Data is a structure MD
-MD.dataDir = '/home/tatemeehan/GrandMesa2019/March27';
+MD.dataDir = '/home/tatemeehan/GrandMesa2019/March28';
 addpath './functions';
 addpath './colormaps';
 MD.workDir = pwd;
 MD.fileNames = dir([MD.dataDir,'/','*.nc']);
-
-MD.lineNo = [1,2];                   % Array of data "LINE" numbers
+MD.lineNo = [0,1];                   % Array of data "LINE" numbers
 MD.nFiles = length(MD.lineNo);        % Number of Files
 nChan = 4;                      % Number of Recorded Channels
 chan =  1:nChan;                % Linear Array of Record Channels
@@ -22,6 +21,9 @@ isParallel = 1;
 isReadNC = 1;                  % Read Multiplexed Data
 isTrimTWT = 0;          % Truncate Recorded Data
 isReduceData = 0;
+
+% Write SWE Data
+isWrite = 1;
 
 % Load Color Maps
 yetBlack = load('yetBlack.txt');
@@ -62,74 +64,121 @@ for ii = 1:MD.nFiles
 end
 end
 %% Calculate SWE
+pitDataDir = '/home/tatemeehan/git-repository/GrandMesaMarch2019/';
+pitFilename = 'PitSummary.csv';
+% Distribute Density Data
+pitData = readtable([pitDataDir,pitFilename]);
+pitE = pitData.Easting;
+pitN = pitData.Northing;
+pitDensity = pitData.MeanDensity_kgpm3_;
 for ii =  1:MD.nFiles
 L = 11;
-D.snowDensity = .250;
-D.velocity = DryCrimVRMS(D.snowDensity);
-D.snowDepth{ii} = (D.Time2Ground{ii}.*D.velocity)./2;
-D.SWE{ii} = D.snowDensity.*D.snowDepth{ii};
+r = 1000; % 1000 m search radius 
+% Averge Density from Snow Pits using Inverse Distance Weighting
+D.snowDensity {ii} = distributeDensity(pitE,pitN,pitDensity,D.X{ii},D.Y{ii},r);
+D.velocity{ii} = DryCrimVRMS(D.snowDensity{ii});
+D.snowDepth{ii} = 100.*((D.Time2Ground{ii}.*D.velocity{ii})./2);
+D.SWE{ii} = (D.snowDensity{ii}.*D.snowDepth{ii})./100;
 % Smooth SWE
 % D.SWE{ii} = movmean(D.snowDensity.*D.snowHeight,L);
 end
 
+%% Write DataFrame.csv
+if isWrite
+    disp('Writing Data Frame')
+    tic
+% Create Date Frame Header
+header = {'Easting','Northing','TWT','Depth','MeanDensity','SWE'};
+header = strjoin(header,',');
+for ii = 1:MD.nFiles
+    if ii == 1
+    F = [D.X{ii},D.Y{ii},D.Time2Ground{ii},D.snowDepth{ii},...
+        D.snowDensity{ii},D.SWE{ii}];
+    else
+        % Concatenate to Daily Data Frame
+        F = [F;[D.X{ii},D.Y{ii},D.Time2Ground{ii},D.snowDepth{ii},...
+            D.snowDensity{ii},D.SWE{ii}]];
+    end
+    if ii == MD.nFiles
+    % Open File and Write Header
+    cd(MD.dataDir)
+    name = 'PulseEKKO_QP_';%
+    date = MD.fileNames(MD.lineNo(ii)+1).name;
+    fname = [name,date(11:21),'.csv'];
+    fid = fopen(fname,'w');
+    fprintf(fid,'%s\n',header);
+    fclose(fid);
+    % Write Data
+    dlmwrite(fname,F,'-append','delimiter',',','precision','%.1f');
+    cd(MD.workDir)
+    end
+end
+clear('F','header','date','fname','name')
+toc
+disp(' ')
+end
 %% Sum Radar Energy above Ground
-
+isEnergyRatio = 0;
+if isEnergyRatio
 % Sum energy of Coherency Grams
-% for ii =  1:MD.nFiles
-%     groundIx = D.groundIx{ii};
-%     Co = D.HHHVCoherence{ii};
-%     Cx = D.VVVHCoherence{ii};
-%     tmp = zeros(size(D.Radar{1,ii},2),1);
-%     parfor (kk = 1:size(D.Radar{1,ii},2),nWorkers)
-%         tmp(kk) = sum(Cx(1:(groundIx(kk)-deconIx),kk))./sum(Co(1:(groundIx(kk)-deconIx),kk));
-%     end
-%     D.EnergyRatio{ii} = movmean(tmp,5.*L);
-% end
-% tic
-% energySum = cell(MD.nChan,MD.nFiles);
-% EnergyRatio = cell(MD.nChan,MD.nFiles);
-% Rad= D.Radar;
-% rmIx = 25; % Remove 25 samples above coherent reflector
-% for ii = 1:MD.nFiles
-% %     rad = D.Radar{jj,ii};
-%     for jj = 1:MD.nChan
-%         for kk = 1:size(D.Radar{jj,ii},2)
-% %             energySum{jj,ii}(kk) = sum((Rad{jj,ii}([1:D.groundIx(:)-rmIx],kk).^2));
-%             energySum{jj,ii}(kk) = sum((Rad{jj,ii}(:,kk).^2));
-%         end
-%     end
-%     for jj = 1:MD.nChan
-%         if strcmp(D.Polarization{ii,jj},'HH')
-%             % Cross-Pole HV to Co-Pole HH
-%             EnergyRatio{jj,ii} = energySum{1,ii}./energySum{jj,ii};
-%         elseif strcmp(D.Polarization{ii,jj},'HV')
-%             % HV to VV
-%             EnergyRatio{jj,ii} = energySum{jj,ii}./energySum{3,ii};
-%         elseif strcmp(D.Polarization{ii,jj},'VV')
-%             % VH to VV
-%             EnergyRatio{jj,ii} = energySum{4,ii}./energySum{jj,ii};
-%         elseif strcmp(D.Polarization{ii,jj},'VH')
-%             % VH to HH
-%             EnergyRatio{jj,ii} = energySum{jj,ii}./energySum{2,ii};
-%         else
-%             error('Polarizations are not Defined!')
-%         end 
-%     end
-% end
-% toc
+for ii =  1:MD.nFiles
+    groundIx = D.groundIx{ii};
+    Co = D.HHHVCoherence{ii};
+    Cx = D.VVVHCoherence{ii};
+    tmp = zeros(size(D.Radar{1,ii},2),1);
+    parfor (kk = 1:size(D.Radar{1,ii},2),nWorkers)
+        tmp(kk) = sum(Cx(1:(groundIx(kk)-deconIx),kk))./sum(Co(1:(groundIx(kk)-deconIx),kk));
+    end
+    D.EnergyRatio{ii} = movmean(tmp,5.*L);
+end
+tic
+energySum = cell(MD.nChan,MD.nFiles);
+EnergyRatio = cell(MD.nChan,MD.nFiles);
+Rad= D.Radar;
+rmIx = 25; % Remove 25 samples above coherent reflector
+for ii = 1:MD.nFiles
+%     rad = D.Radar{jj,ii};
+    for jj = 1:MD.nChan
+        for kk = 1:size(D.Radar{jj,ii},2)
+%             energySum{jj,ii}(kk) = sum((Rad{jj,ii}([1:D.groundIx(:)-rmIx],kk).^2));
+            energySum{jj,ii}(kk) = sum((Rad{jj,ii}(:,kk).^2));
+        end
+    end
+    for jj = 1:MD.nChan
+        if strcmp(D.Polarization{ii,jj},'HH')
+            % Cross-Pole HV to Co-Pole HH
+            EnergyRatio{jj,ii} = energySum{1,ii}./energySum{jj,ii};
+        elseif strcmp(D.Polarization{ii,jj},'HV')
+            % HV to VV
+            EnergyRatio{jj,ii} = energySum{jj,ii}./energySum{3,ii};
+        elseif strcmp(D.Polarization{ii,jj},'VV')
+            % VH to VV
+            EnergyRatio{jj,ii} = energySum{4,ii}./energySum{jj,ii};
+        elseif strcmp(D.Polarization{ii,jj},'VH')
+            % VH to HH
+            EnergyRatio{jj,ii} = energySum{jj,ii}./energySum{2,ii};
+        else
+            error('Polarizations are not Defined!')
+        end 
+    end
+end
+toc
+end
 %% Make Figures
+isMakeFigures = 0;
+if isMakeFigures
 set(0,'DefaultAxesFontName','FreeSerif')
 set(0,'DefaultTextFontName','FreeSerif')
 % set(0,'DefaultFontSize',14,'DefaultFontWeight','bold')
-xix = [find(D.DistanceAxis>3700,1):find(D.DistanceAxis>5300,1)];
+% xix = [find(D.DistanceAxis{1}>3700,1):find(D.DistanceAxis{1}>5300,1)];
 % yix = [1:300;
-% xix = 1:length(D.DistanceAxis);
+xix = 1:length(D.DistanceAxis{1});
 figure();
-pcolor(D.DistanceAxis(xix),D.TimeAxis,D.Coherence{1}(:,xix));
+pcolor(D.DistanceAxis{ii}(xix),D.TimeAxis{ii},D.Coherence{ii}(:,xix));
 shading interp; colormap(yetBlack);axis ij;hold on;caxis([0,1]);
 % imagesc(D.DistanceAxis(xix),D.TimeAxis,D.Coherence{1}(:,xix));
 % shading interp; colormap(yetBlack);hold on;
-plot(D.DistanceAxis(xix),D.Time2Ground(xix)-1,'.','color',[.7,.7,.7])
+plot(D.DistanceAxis{ii}(xix),D.Time2Ground{ii}(xix),'.','color',[.7,.7,.7])
 c = colorbar; c.Location = 'northoutside';c.Label.String = 'Quad-Pol Coherence';
 c.FontSize = 12; c.Label.FontSize = 14;
 set(gca,'fontsize',14,'fontweight','bold','layer','top')
@@ -264,4 +313,4 @@ ylabel('SWE')
 xlabel('Energy Ratio (VH/HH)')
 set(gca,'fontsize',14,'fontweight','bold')
 
-
+end

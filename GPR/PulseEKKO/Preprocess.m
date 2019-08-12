@@ -19,6 +19,8 @@
 %     GPS = cell(1,MD.nFiles);
 %     Year = cell(1,MD.nFiles);
     TimeAxis = cell(1,MD.nFiles);
+    tmpDistance = cell(nChan,MD.nFiles);
+
     
     for ii = 1 : MD.nFiles
         tic
@@ -157,7 +159,7 @@
 %             plot(D.trhd{ii}(16,dupIx),dupIx,'.r');
 %             figure();plot(D.trhd{ii}(16,:),D.trhd{ii}(18,:),'.k')
             % Remove Static Trace Headers from Multiplexed Record
-            vThreshold = 2;
+            vThreshold = 1;
             dupIx = removeStaticPositions(D.trhd{ii},vThreshold);
             D.trhd{ii}(:,dupIx) = [];         
             % Configure Trace Indicies
@@ -297,6 +299,7 @@
                 
                 % Remove un-Binned Common Offset Traces
                 Radar{jj,ii} = Radar{jj,ii}(:,1:gatherLength - xTrc);
+                tmpDistance{jj,ii} = D.Distance{jj,ii}(:,1:gatherLength - xTrc);
                 
                 % Remove un-Binned Trace Indicies
                 traceIx{jj,ii} = traceIx{jj,ii}(:,1:gatherLength - xTrc);
@@ -342,13 +345,16 @@
             Radar{jj,ii} = Radar{jj,ii}(1:minIx,:);            
         end
         D.Radar = Radar;
-        D.DistanceAxis{ii} = mean(cat(1,D.Distance{:,ii}));
+        D.DistanceAxis{ii} = mean(cat(1,tmpDistance{:,ii}));
         D.DistanceAxis{ii} = D.DistanceAxis{ii} - D.DistanceAxis{ii}(1);
-        
+        kk = 0;
+        D.X{ii} = zeros(length(1:nChan:size(D.trhd{ii},2)),1);
+        D.Y{ii} = D.X{ii}; D.Z{ii} = D.X{ii};
         for jj = 1:nChan:size(D.trhd{ii},2)
-            D.X{ii}(jj) = D.trhd{ii}(10,jj);
-            D.Y{ii}(jj) = D.trhd{ii}(11,jj);
-            D.Z{ii}(jj) = D.trhd{ii}(12,jj);            
+            kk = kk + 1;
+            D.X{ii}(kk) = D.trhd{ii}(10,jj);
+            D.Y{ii}(kk) = D.trhd{ii}(11,jj);
+            D.Z{ii}(kk) = D.trhd{ii}(12,jj);            
         end
         D.TimeAxis{ii} = TimeAxis;
         clear('TimeAxis')
@@ -358,6 +364,7 @@
         display(' ')
     end
     MD.nChan = nChan; MD.chan = chan;
+    D = rmfield(D,'Distance');
     clear('Rad','tmpIx','Distance','endDist','chan','nChan','TWT','dt','TimeAxis','minIx','minChan',...
         'dH','dS','dT','dupIx','dX','dY','dZ','gatherLength','instrumentPad',...
         'padding','midPointArray','multiplexNtrcs','pol','polOffset','Radar','rmNtrc',...
