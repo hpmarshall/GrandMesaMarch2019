@@ -1,12 +1,13 @@
 %% Multi-channel Quad-Pole GPR (MxQP)
 clear; close all; clc;
 %% Meta Data is a structure MD
-MD.dataDir = '/home/tatemeehan/GrandMesa2019/March28';
+% MD.dataDir = '/home/tatemeehan/GrandMesa2019/March27';
+MD.dataDir = 'D:\GrandMesaGPR\nc';
 addpath './functions';
 addpath './colormaps';
 MD.workDir = pwd;
 MD.fileNames = dir([MD.dataDir,'/','*.nc']);
-MD.lineNo = [0,1];                   % Array of data "LINE" numbers
+MD.lineNo = [2];                   % Array of data "LINE" numbers
 MD.nFiles = length(MD.lineNo);        % Number of Files
 nChan = 4;                      % Number of Recorded Channels
 chan =  1:nChan;                % Linear Array of Record Channels
@@ -23,7 +24,7 @@ isTrimTWT = 0;          % Truncate Recorded Data
 isReduceData = 0;
 
 % Write SWE Data
-isWrite = 1;
+isWrite = 0;
 
 % Load Color Maps
 yetBlack = load('yetBlack.txt');
@@ -64,7 +65,8 @@ for ii = 1:MD.nFiles
 end
 end
 %% Calculate SWE
-pitDataDir = '/home/tatemeehan/git-repository/GrandMesaMarch2019/';
+% pitDataDir = '/home/tatemeehan/git-repository/GrandMesaMarch2019/';
+pitDataDir = 'D:\git-repository\GrandMesaMarch2019\';
 pitFilename = 'PitSummary.csv';
 % Distribute Density Data
 pitData = readtable([pitDataDir,pitFilename]);
@@ -167,12 +169,14 @@ end
 %% Make Figures
 isMakeFigures = 0;
 if isMakeFigures
-set(0,'DefaultAxesFontName','FreeSerif')
-set(0,'DefaultTextFontName','FreeSerif')
+    set(0,'DefaultAxesFontName','Serif')
+set(0,'DefaultTextFontName','Serif')
+% set(0,'DefaultAxesFontName','FreeSerif')
+% set(0,'DefaultTextFontName','FreeSerif')
 % set(0,'DefaultFontSize',14,'DefaultFontWeight','bold')
-% xix = [find(D.DistanceAxis{1}>3700,1):find(D.DistanceAxis{1}>5300,1)];
+xix = [find(D.DistanceAxis{1}>3700,1):find(D.DistanceAxis{1}>5300,1)];
 % yix = [1:300;
-xix = 1:length(D.DistanceAxis{1});
+% xix = 1:length(D.DistanceAxis{1});
 figure();
 pcolor(D.DistanceAxis{ii}(xix),D.TimeAxis{ii},D.Coherence{ii}(:,xix));
 shading interp; colormap(yetBlack);axis ij;hold on;caxis([0,1]);
@@ -214,7 +218,7 @@ set(gca,'fontsize',14,'fontweight','bold')
 % Plot Time Gain RadarGram HV
 cq = quantile(D.Radar{1}(:),[0.005,0.995]);
 figure();
-pcolor(D.DistanceAxis,D.TimeAxis,D.Radar{1,1});
+pcolor(D.DistanceAxis{ii}(xix),D.TimeAxis{ii},D.Radar{1,1}(:,xix));
 shading interp;colormap(bone);axis ij;
 caxis(cq);
 set(gca,'fontsize',14,'fontweight','bold','layer','top')
@@ -226,7 +230,7 @@ set(gca,'fontsize',14,'fontweight','bold')
 % Plot Time Gain RadarGram HH
 cq = quantile(D.Radar{2}(:),[0.005,0.995]);
 figure();
-pcolor(D.DistanceAxis,D.TimeAxis,D.Radar{2,1});
+pcolor(D.DistanceAxis{ii}(xix),D.TimeAxis{ii},D.Radar{2,1}(:,xix));
 shading interp;colormap(bone);axis ij;
 caxis(cq);
 set(gca,'fontsize',14,'fontweight','bold','layer','top')
