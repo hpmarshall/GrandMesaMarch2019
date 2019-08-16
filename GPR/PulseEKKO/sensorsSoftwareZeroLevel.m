@@ -5,6 +5,7 @@
 % Tate Meehan - Oct. 2018 - Updated April 2019
 clear; close all; clc
 % addpath '/sonichome/tatemeehan/GreenTracs2017/GPR_Processing/MultiOffset/TM'
+addpath './functions'
 isWrite = 1;
 
 % Create Error Log
@@ -19,7 +20,7 @@ workingDirectory = pwd;
 directory = 'D:\GrandMesaGPR';
 folders = dir(directory);
 % folders(1:2) = []; % Remove Hidden Directories
-folders([1:3,8:14]) = []; % Remove Extra Folders
+folders([1:4,6:end]) = []; % Remove Extra Folders
 datearray = cat(1,folders.date);
 daymonthyear = (datearray(:,1:11));
 num = datenum(daymonthyear,'dd-mmm-yyyy');
@@ -27,9 +28,9 @@ num = datenum(daymonthyear,'dd-mmm-yyyy');
 folders = folders(sortIx);
 
 % Loop Over each day of Acquisition
-for ff = 4:length(folders)
+for ff = 1:length(folders)
 %     dataDir = [directory,'/',folders(ff).name,'/PulseEKKO/'];
-    dataDir = [directory,'\',folders(ff).name,'\PulseEKKO\'];
+    dataDir = [directory,'\',folders(ff).name,'\'];%,'\PulseEKKO\'];
         if strcmp(dataDir,'D:\GrandMesaGPR\PulseEKKO_28March2019\PulseEKKO\')
 %     if strcmp(dataDir,'/SNOWDATA/GrandMesa2019/GPR/PulseEKKO_28March2019/PulseEKKO/')
         % Move into one additional directory for this day.
@@ -136,11 +137,24 @@ for ff = 4:length(folders)
         hdix = 1:3:length(rawGPS{1});
         GPGGAix = 2:3:length(rawGPS{1});
         GPZDAix = 3:3:length(rawGPS{1});
-        sec = zeros(length(hdix),1);
+%         sec = zeros(length(hdix),1); time = sec; date = sec; posx = sec;
+%         lat = sec; latm = sec; lon = sec; lonm = sec; z = sec;
+        kk = 0;
         for jj = 1:length(hdix)
+            % Break Loop if Index Exceeds
+            if jj > length(rawGPS{1})/3%jj + kk > length(hdix)
+                break
+            end
             % Get the Date and Time of the Trace
             % GPZDA string
             tmp = rawGPS{1}{GPZDAix(jj)};
+            tmpGPZDA = strsplit([rawGPS{1}{GPZDAix(jj)}],',');
+            if strcmp(tmpGPZDA{1},'$GPZDA')
+            else
+                % Error Catch for Duplicated Trace ID
+                rawGPS{1}(GPZDAix(jj)) = [];
+                tmp = rawGPS{1}{GPZDAix(jj)};;
+            end
             time(jj,:) = str2num(tmp(8:13));
             % Correct time to seconds of day
             timestr = [tmp(8:9),':',tmp(10:11),':',tmp(12:13)];
@@ -259,7 +273,7 @@ for ff = 4:length(folders)
         
         % Ensure that we haven't Created Extraneous Trace Numbers
         % Due to Free Run Acquisition this Traces will be Removed Later
-            % This does not Introduce any Permanant or Correlated Errors
+            % This does not Introduce any Permanent or Correlated Errors
         trcendIx = find(trcno > multiplexNtrcs);
         if ~isempty(trcendIx)
             trcno(trcendIx(end):-1:trcendIx(1)-1) = ...
@@ -297,18 +311,6 @@ for ff = 4:length(folders)
         % Convert to UTM
         [E,N,utmzone] = deg2utm(lat,lon);
         
-%         % Moving Least Squares Interpolation
-%         nnodes = length(E);
-%         xi = trcno;
-%         npoints = multiplexNtrcs;
-%         x = 1:multiplexNtrcs;
-%         dxi = mean(diff(xi));
-%         scale = 7;
-%         dm = scale*dxi*ones(1,nnodes);
-%         [phi, ~, ~] = MLS1DShape(1, nnodes, xi, npoints, x, dm, 'GAUSS', 3.0);
-%         % Evaluate Approximation
-%         X = phi*E; Y = phi*N;
-
         % PCHIP Interpolation (OutPerforms MLS)
         X = pchip(s,E,sec);
         Y = pchip(s,N,sec);
