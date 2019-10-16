@@ -35,6 +35,9 @@ end
 if nargin<6
     verbose=0; % set default verbosity
 end
+if fmax/nyqf >1
+    fmax = nyqf-1;
+end
 
 if verbose
     fprintf('Nyquist      = %f.\n',nyqf);
