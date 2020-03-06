@@ -3,11 +3,13 @@ clear; close all; clc;
 %% Meta Data is a structure MD
 % MD.dataDir = '/home/tatemeehan/GrandMesa2019/March27';
 MD.dataDir = 'D:\GrandMesaGPR\nc';
+MD.dataDir = 'D:\GrandMesaGPR\PulseEKKO_25March2019\PulseEKKO';
+% MD.dataDir = 'D:\GrandMesaGPR\PulseEKKO_26March2019\PulseEKKO';
 addpath './functions';
 addpath './colormaps';
 MD.workDir = pwd;
 MD.fileNames = dir([MD.dataDir,'/','*.nc']);
-MD.lineNo = [2];                   % Array of data "LINE" numbers
+MD.lineNo = [1,2,3,4,5,6];                   % Array of data "LINE" numbers
 MD.nFiles = length(MD.lineNo);        % Number of Files
 nChan = 4;                      % Number of Recorded Channels
 chan =  1:nChan;                % Linear Array of Record Channels
@@ -24,7 +26,7 @@ isTrimTWT = 0;          % Truncate Recorded Data
 isReduceData = 0;
 
 % Write SWE Data
-isWrite = 0;
+isWrite = 1;
 
 % Load Color Maps
 yetBlack = load('yetBlack.txt');
