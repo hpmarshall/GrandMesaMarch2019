@@ -1,5 +1,5 @@
 %% Grand Mesa Pit, Probe, and QPGPR Data Anaylsis
-clear; close all; clc;
+clear;% close all; clc;
 workDir = pwd;
 dataDir = 'D:\git-repository\GrandMesaMarch2019\';
 QPdataDir = 'D:\GrandMesaGPR\';
@@ -45,6 +45,7 @@ for kk = 1:size(probeData,1)
 %     prbIx = find(tmpPrb<10);
     [~,prbIx] = sort(tmpPrb);
     prbIx = prbIx(1:10);
+%     prbIx = prbIx(1:5);
     prbDepth(kk) = mean(probeDepth(prbIx));
 % prbDepth(kk)  = probeDepth(kk);
     w = 1./tmp(qpIx).^2;

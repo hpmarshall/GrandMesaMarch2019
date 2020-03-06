@@ -116,8 +116,8 @@
         % Load Transmitter and Receiver Sequencing and Geometry        
         % 1 GHz Offsets
         % Subrtact 5m Distance from GPS to Rx1;
-        txGeo = [-.2, -.2, -.6, -.6] - 5; % Tx Sequence & Absolute Position
-        rxGeo = [0, -.4, 0, -.4] - 5; % Rx Sequence & Absolute Position
+        txGeo = [-.2, -.2, -.6, -.6]; % Tx Sequence & Absolute Position
+        rxGeo = [0, -.4, 0, -.4]; % Rx Sequence & Absolute Position
         
         % Input Polaraztion Configureation
         D.Polarization = {'HV','HH','VV','VH'};
@@ -159,7 +159,7 @@
 %             plot(D.trhd{ii}(16,dupIx),dupIx,'.r');
 %             figure();plot(D.trhd{ii}(16,:),D.trhd{ii}(18,:),'.k')
             % Remove Static Trace Headers from Multiplexed Record
-            vThreshold = 1;
+            vThreshold = .25;
             dupIx = removeStaticPositions(D.trhd{ii},vThreshold);
             D.trhd{ii}(:,dupIx) = [];         
             % Configure Trace Indicies
@@ -254,9 +254,16 @@
         
         for jj = chan
             % DeMux Sequential Data
-            % GPS DeadReckoning Within Demux
-                % Calculate Truer Antenna Positions using Array Geometry
             [Radar{jj,ii},D.trhd{ii},traceIx{jj,ii},D.Distance{jj,ii}] = DeMux(D.Rad{ii},D.trhd{ii},chan(jj));
+            % GPS DeadReckoning After Demux
+            delta = [0.35,5.0,0]; % Reckoning Perturbations
+            % Calculate Truer Antenna Positions using Array Geometry
+            [D.trhd{ii}] = deadReckon( D.trhd{ii}, jj, delta );
+        end
+        % Smooth Positions post-Reckoning
+        R = 51;
+        for kk = 13:15
+            D.trhd{ii}(kk,:) = movmean(D.trhd{ii}(kk,:),R);
         end
         
         multiplexNtrcs = size(D.trhd{ii},2);% Length of Multiplex
