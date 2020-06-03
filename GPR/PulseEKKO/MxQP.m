@@ -2,21 +2,23 @@
 clear; close all; clc;
 %% Meta Data is a structure MD
 % MD.dataDir = '/home/tatemeehan/GrandMesa2019/March27';
-MD.dataDir = 'D:\GrandMesaGPR\nc';
-MD.dataDir = 'D:\GrandMesaGPR\PulseEKKO_25March2019\PulseEKKO';
+% MD.dataDir = 'D:\GrandMesaGPR\nc';
+% MD.dataDir = 'D:\GrandMesaGPR\PulseEKKO_25March2019\PulseEKKO';
 % MD.dataDir = 'D:\GrandMesaGPR\PulseEKKO_26March2019\PulseEKKO';
+MD.dataDir = 'D:\GrandMesaGPR\PulseEKKO_27March2019\PulseEKKO';
+% MD.dataDir = 'D:\GrandMesaGPR\PulseEKKO_28March2019\PulseEKKO\D04';
 addpath './functions';
 addpath './colormaps';
 MD.workDir = pwd;
 MD.fileNames = dir([MD.dataDir,'/','*.nc']);
-MD.lineNo = [1,2,3,4,5,6];                   % Array of data "LINE" numbers
+MD.lineNo = 2;%[0,1];                   % Array of data "LINE" numbers
 MD.nFiles = length(MD.lineNo);        % Number of Files
 nChan = 4;                      % Number of Recorded Channels
 chan =  1:nChan;                % Linear Array of Record Channels
 
 % Establish Tx Rx Geometry for CMP Gathering
-MD.nTx = 3;               % Number of Transmitters in Sequence
-MD.nRx = 3;               % Number of Receivers in Sequence
+MD.nTx = 2;               % Number of Transmitters in Sequence
+MD.nRx = 2;               % Number of Receivers in Sequence
 %% Processing WorkFlow Controls
 % Parallel Computing Enabled
 isParallel = 1;
@@ -26,7 +28,7 @@ isTrimTWT = 0;          % Truncate Recorded Data
 isReduceData = 0;
 
 % Write SWE Data
-isWrite = 1;
+isWrite = 0;
 
 % Load Color Maps
 yetBlack = load('yetBlack.txt');
@@ -57,7 +59,7 @@ toc
 %% Pick Ground Return
 GroundPicker
 %% AGC Gain
-isAGCgain = 0;
+isAGCgain = 1;
 if isAGCgain
 D.RadarAGC = cell(MD.nChan,MD.nFiles);
 for ii = 1:MD.nFiles

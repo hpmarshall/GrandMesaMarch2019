@@ -153,3 +153,22 @@ daspect([1,1,1])
 % ax = gca;
 % ax.XRuler.Exponent = 0;
 % ax.YRuler.Exponent = 0;
+
+figure();
+scatter(qpEasting,qpNorthing,15,qpDepth,'filled');colormap(b)
+xlabel('Easting (km)')
+ylabel('Northing (km)')
+c = colorbar; c.Location = 'northoutside';c.Label.String = 'Depth (cm)';
+c.FontSize = 12; c.Label.FontSize = 14;caxis([50,300])
+xlim([740.000,749.500])
+ylim([4321.000,4327.500])
+hold on
+I = imread([QPdataDir,'pit_locations_clusters_crop.png']); 
+Eaxis = linspace(740.000,749.500,size(I,2));
+Naxis = linspace(4321.000,4327.500,size(I,1));
+% h = imagesc(Eaxis,Naxis,I); 
+image(Eaxis,Naxis,flipud(I))
+% uistack(h,'bottom')
+scatter(qpEasting./1000,qpNorthing./1000,2,qpDepth,'filled');colormap(b)
+set(gca,'fontsize',14,'fontweight','bold')
+daspect([1,1,1])
